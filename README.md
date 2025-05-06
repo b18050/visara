@@ -39,6 +39,6 @@ Run the Application:
 
     AgentVerse Platform: OpenBMB/AgentVerse
     GitHub
-    GitHub
-    GitHub
+
+![Dashboard Demo](image.png)
 
