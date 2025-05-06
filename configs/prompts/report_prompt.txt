@@ -1,0 +1,12 @@
+Generate a comprehensive report on the internet outage event.
+
+Outage Data:
+{outage_data}
+
+Relevant News Articles:
+{news_articles}
+
+Visualization:
+{visualization_url}
+
+Provide insights into the possible causes and impacts of the outage.

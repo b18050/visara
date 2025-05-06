@@ -16,7 +16,7 @@
 
     Clone the Repository:
 
-git clone https://github.com/yourusername/network-outage-reporter.git
+git clone https://github.com/b18050/network-outage-reporter.git
 cd network-outage-reporter
 
 Install Dependencies:
