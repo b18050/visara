@@ -2,4 +2,3 @@
 
 ioda_base_url: "https://api.ioda.inetintel.cc.gatech.edu/v2"
 news_api_key: "YOUR_NEWSAPI_KEY"
-openai_api_key: "YOUR_OPENAI_API_KEY"

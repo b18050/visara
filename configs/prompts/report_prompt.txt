@@ -6,7 +6,4 @@ Outage Data:
 Relevant News Articles:
 {news_articles}
 
-Visualization:
-{visualization_url}
-
 Provide insights into the possible causes and impacts of the outage.
