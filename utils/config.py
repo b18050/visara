@@ -4,30 +4,44 @@ import os
 import yaml
 from functools import lru_cache
 
-@lru_cache(maxsize=1)
-def get_openai_api_key():
+try:
+    from dotenv import load_dotenv  # optional
+    load_dotenv()
+except Exception:
+    pass
+
+
+def _load_config_dict() -> dict:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(base_dir, "configs", "config.yaml")
-
     if os.path.isfile(config_path):
         with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-            print(config)
-            if config and "openai_api_key" in config:
-                return config["openai_api_key"]
+            return yaml.safe_load(f) or {}
+    return {}
 
-    raise RuntimeError("OpenAI API key not found in config.yaml.")
 
 @lru_cache(maxsize=1)
-def get_geminiai_api_key():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, "configs", "config.yaml")
+def get_openai_api_key() -> str:
+    # Prefer environment variable
+    env_key = os.getenv("OPENAI_API_KEY")
+    if env_key:
+        return env_key
 
-    if os.path.isfile(config_path):
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-            print(config)
-            if config and "gemini_api_key" in config:
-                return config["gemini_api_key"]
+    # Fallback to config file
+    config = _load_config_dict()
+    key = config.get("openai_api_key")
+    if key:
+        return key
+    raise RuntimeError("OpenAI API key not found in environment or config.yaml.")
 
-    raise RuntimeError("Gemini API key not found in config.yaml.")
+
+@lru_cache(maxsize=1)
+def get_geminiai_api_key() -> str:
+    env_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if env_key:
+        return env_key
+    config = _load_config_dict()
+    key = config.get("gemini_api_key")
+    if key:
+        return key
+    raise RuntimeError("Gemini API key not found in environment or config.yaml.")

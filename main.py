@@ -1,5 +1,7 @@
 # main.py
 
+import os
+from pathlib import Path
 import yaml
 from datetime import datetime, timedelta
 from agents.coordinator import Coordinator
@@ -18,15 +20,19 @@ def main():
 
     coordinator = Coordinator(config, prompt_template)
 
-    # Example parameters
-    location = "Sanaa, Yemen"
+    # Example parameters (could be parameterized later)
+    location = config.get("default_location", "Sanaa, Yemen")
+    window_hours = int(config.get("default_window_hours", 4))
     end_time = datetime.utcnow()
-    start_time = end_time - timedelta(hours=4)
+    start_time = end_time - timedelta(hours=window_hours)
 
     report = coordinator.run(location, start_time, end_time)
 
-    # Save the report
-    output_path = f"outputs/reports/report_{location.replace(', ', '_')}_{end_time.strftime('%Y%m%d%H%M%S')}.txt"
+    # Ensure output directory exists and save the report
+    out_dir = Path("outputs/reports")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"report_{location.replace(', ', '_')}_{end_time.strftime('%Y%m%d%H%M%S')}.txt"
+    output_path = out_dir / filename
     with open(output_path, 'w') as file:
         file.write(report)
 

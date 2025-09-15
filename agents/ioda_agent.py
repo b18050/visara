@@ -1,44 +1,54 @@
-# agents/ioda_agent.py
+"""IODA (Internet Outage Detection and Analysis) API agent.
 
-import requests
+This agent is resilient to offline environments and API failures,
+returning None/empty data when requests cannot be completed.
+"""
+
+from typing import Any, Dict, Optional
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime
+
+try:
+    import httpx
+except Exception:  # pragma: no cover - import safety
+    httpx = None  # type: ignore
+
 
 class IODAAgent:
-    def __init__(self, base_url):
-        self.base_url = base_url
+    def __init__(self, base_url: Optional[str]):
+        self.base_url = base_url or "https://api.ioda.inetintel.cc.gatech.edu/v2"
 
-    def fetch_outage_data(self, location, start_time, end_time):
+    def fetch_outage_data(self, location: str, start_time: datetime, end_time: datetime) -> Optional[Dict[str, Any]]:
+        """Fetch outage data from IODA for a given location and time range.
+
+        Returns None if the request cannot be completed.
         """
-        Fetches outage data from IODA API for a given location and time range.
-        """
+        if httpx is None:
+            return None
+
         endpoint = f"{self.base_url}/signals"
         params = {
             "location": location,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat()
+            "end_time": end_time.isoformat(),
         }
-        response = requests.get(endpoint, params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return None
-        
-    def encode_image(self, image_path):
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
 
-    def get_visualization_url(self, location, start_time, end_time):
-        """
-        Constructs the URL for the IODA visualization.
-        """
-        # This is a placeholder. Replace with the actual method to get the visualization URL.
-        return f"{self.base_url}/visualization?location={location}&start={start_time.isoformat()}&end={end_time.isoformat()}"
-    
-    def get_image_data_prompt(self, image_path):
-        """
-        Constructs the image encoder
-        """
-        # Getting the base64 string
-        base64_image = self.encode_image(image_path)
-        return base64_image
+        try:
+            with httpx.Client(timeout=10) as client:
+                resp = client.get(endpoint, params=params)
+                if resp.status_code == 200:
+                    return resp.json()
+        except Exception:
+            return None
+        return None
+
+    def get_visualization_url(self, location: str, start_time: datetime, end_time: datetime) -> str:
+        """Construct a best-effort visualization URL for IODA UI."""
+        return (
+            f"{self.base_url}/visualization?location={location}"
+            f"&start={start_time.isoformat()}&end={end_time.isoformat()}"
+        )
+
+    def encode_image(self, image_path: str) -> str:
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
