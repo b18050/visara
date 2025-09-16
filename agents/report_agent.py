@@ -71,7 +71,7 @@ class ReportAgent:
                     self._llama_cpp = None
                     self.use_llm = False
 
-    def _render_local(self, outage_data: Any, news_articles: List[dict], visualization_url: Optional[str]) -> str:
+    def _render_local(self, outage_data: Any, news_articles: List[dict], visualization_url: Optional[str], has_image: bool = False) -> str:
         """Render a concise, structured report locally without an LLM."""
         lines = []
         lines.append("Network Outage Report")
@@ -79,6 +79,9 @@ class ReportAgent:
         if visualization_url:
             lines.append(f"Visualization: {visualization_url}")
         lines.append("")
+        if has_image:
+            lines.append("Image: An outage map/image was provided by the user.")
+            lines.append("")
 
         lines.append("Outage Data:")
         if outage_data:
@@ -110,18 +113,19 @@ class ReportAgent:
         )
         return "\n".join(lines)
 
-    def generate_report(self, outage_data, news_articles, visualization_url: Optional[str] = None) -> str:
+    def generate_report(self, outage_data, news_articles, visualization_url: Optional[str] = None, image_base64: Optional[str] = None) -> str:
         """
         Generates a report using either a local renderer or an LLM.
         """
         prompt = self.prompt_template.format(
             outage_data=outage_data,
             news_articles=news_articles,
-            visualization_url=visualization_url or ""
+            visualization_url=visualization_url or "",
+            image_context=("User provided an outage image (PNG)." if image_base64 else "No image provided.")
         )
 
         if not self.use_llm:
-            return self._render_local(outage_data, news_articles, visualization_url)
+            return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))
 
         # Provider: llama_cpp (in-process, no server)
         if self.provider == "llama_cpp" and self._llama_cpp is not None:
@@ -136,23 +140,29 @@ class ReportAgent:
                 )
                 return result["choices"][0]["message"]["content"]
             except Exception:
-                return self._render_local(outage_data, news_articles, visualization_url)
+                return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))
 
         # Provider: openai/ollama via OpenAI-compatible server
         if self._client is not None:
             try:
+                content: Any = [{"type": "text", "text": prompt}]
+                if image_base64:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_base64}"}
+                    })
                 response = self._client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a network outage analysis assistant."},
-                        {"role": "user", "content": prompt},
+                        {"role": "user", "content": content},
                     ],
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
                 return response.choices[0].message.content  # type: ignore[attr-defined]
             except Exception:
-                return self._render_local(outage_data, news_articles, visualization_url)
+                return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))
 
         # Fallback
-        return self._render_local(outage_data, news_articles, visualization_url)
+        return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))

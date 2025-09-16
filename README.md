@@ -34,6 +34,10 @@ Web App (React + FastAPI)
   - cd web
   - npm install
   - npm run dev  # default http://localhost:5173
+  - Features:
+    - Upload an outage image (PNG/JPEG) for context
+    - Fetch latest news for a location and select relevant articles
+    - Generate a report using the selected inputs, with optional local LLM
 
 - Generate a report in the UI
   - Open the Vite dev URL in your browser

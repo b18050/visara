@@ -6,4 +6,7 @@ Outage Data:
 Relevant News Articles:
 {news_articles}
 
+Image Context:
+{image_context}
+
 Provide insights into the possible causes and impacts of the outage.
