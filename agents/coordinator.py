@@ -14,9 +14,6 @@ class Coordinator:
             prompt_template=prompt_template,
             use_llm=bool(config.get("use_llm", False)),
             model=config.get("openai_model", "gpt-4o-mini"),
-            provider=config.get("llm_provider", "none"),
-            base_url=config.get("llm_base_url"),
-            local_model_path=config.get("local_model_path"),
             temperature=float(config.get("temperature", 0.2)),
             max_tokens=int(config.get("max_tokens", 800)),
         )

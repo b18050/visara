@@ -2,6 +2,6 @@ httpx
 openai>=1.40.0
 PyYAML
 python-dotenv
-llama-cpp-python; platform_machine != "arm64" or sys_platform != "darwin"
 fastapi>=0.110
 uvicorn[standard]>=0.24
+mcp>=1.0.0; python_version >= "3.10"

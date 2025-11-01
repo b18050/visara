@@ -1,0 +1,13 @@
+# configs/config.yaml.example
+# Copy this file to config.yaml and fill in your API keys
+
+ioda_base_url: "https://api.ioda.inetintel.cc.gatech.edu/v2"
+news_api_key: "YOUR_NEWSAPI_KEY"  # Get from https://newsapi.org
+openai_api_key: ""  # Get from https://platform.openai.com or set OPENAI_API_KEY env variable
+use_llm: true       # Set to false for offline mode (no API calls)
+openai_model: "gpt-4o-mini"  # Options: gpt-4o, gpt-4o-mini, gpt-3.5-turbo, phi3:mini (for Ollama)
+default_location: "Sanaa, Yemen"
+default_window_hours: 4
+temperature: 0.2
+max_tokens: 800
+

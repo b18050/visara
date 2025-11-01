@@ -23,6 +23,16 @@ outputs/
 
 # Logs
 *.log
+/tmp/visara-*.log
+
+# Sensitive config files with API keys
+configs/config.yaml
+.python-version
+
+# Temp files
+*.swp
+*.swo
+*~
 
 # IDE
 .idea/
