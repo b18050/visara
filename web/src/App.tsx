@@ -43,13 +43,23 @@ export default function App() {
       setError(null)
       setArticles([])
       setSelected({})
+      setLoading(true)
       const body = { query: location, hours }
       const res = await fetch(`${API_URL}/news`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        // Gracefully handle API errors - don't show technical errors to users
+        console.warn('News API not available, continuing in demo mode')
+        setArticles([])
+        return
+      }
       const data = await res.json()
       setArticles(data.articles || [])
     } catch (err: any) {
-      setError(err?.message || 'Failed to fetch news')
+      // Silent fail for demo - API might not be configured
+      console.warn('News fetch failed:', err)
+      setArticles([])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -66,11 +76,17 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ location, hours, use_llm: useLLM, model, image_base64: imageBase64, articles: selectedArticles })
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error('Report generation failed:', errorText)
+        setError('Unable to generate report. Please check your backend server is running.')
+        return
+      }
       const data: ReportResponse = await res.json()
       setResult(data)
     } catch (err: any) {
-      setError(err?.message || 'Request failed')
+      console.error('Report error:', err)
+      setError('Connection failed. Make sure the backend server is running at ' + API_URL)
     } finally {
       setLoading(false)
     }
@@ -86,7 +102,9 @@ export default function App() {
         <div className="pill">API: {API_URL.replace(/^https?:\/\//,'')}</div>
       </div>
 
-      {error && <div className="error" role="alert">{error}</div>}
+      {error && <div className="error" role="alert">⚠️ {error}</div>}
+      
+      {!error && result && <div className="success" role="status">✅ Report generated successfully!</div>}
 
       <div className="grid">
         <div className="left">
@@ -105,6 +123,7 @@ export default function App() {
 
             <div className="field">
               <label className="label">Outage Image (PNG/JPEG)</label>
+              <div className="section-sub" style={{ marginTop: -6, marginBottom: 8 }}>Optional: Upload a network outage visualization or map</div>
               <input className="input" accept="image/png,image/jpeg" type="file" onChange={e => onImageChange(e.target.files?.[0] || null)} />
               {imagePreview && (
                 <div className="preview"><img src={imagePreview} alt="Preview" /></div>
@@ -112,8 +131,10 @@ export default function App() {
             </div>
 
             <div className="row" style={{ marginTop: 6 }}>
-              <button type="button" className="btn" onClick={getNews}>Fetch Latest News</button>
-              <span className="count">{articles.length ? `${articles.length} articles` : 'No articles yet'}</span>
+              <button type="button" className="btn" onClick={getNews} disabled={loading}>
+                {loading ? 'Fetching...' : 'Fetch Latest News'}
+              </button>
+              <span className="count">{articles.length ? `📰 ${articles.length} articles` : '📰 No articles yet'}</span>
             </div>
 
             {articles.length > 0 && (
@@ -136,18 +157,21 @@ export default function App() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <div className="section-title">Generation</div>
+            <div className="section-title">Report Generation</div>
+            <div className="section-sub">Configure AI model settings (optional)</div>
             <div className="row">
               <label className="row" style={{ gap: 8 }}>
-                <input type="checkbox" checked={useLLM} onChange={e => setUseLLM(e.target.checked)} /> Use LLM
+                <input type="checkbox" checked={useLLM} onChange={e => setUseLLM(e.target.checked)} /> Use AI/LLM
               </label>
-              <input className="input grow" placeholder="model name" value={model} onChange={e => setModel(e.target.value)} />
+              <input className="input grow" placeholder="model name (e.g., gpt-4o-mini, phi3:mini)" value={model} onChange={e => setModel(e.target.value)} />
             </div>
-            <div className="row" style={{ marginTop: 12 }}>
-              <button className="btn btn-primary" disabled={loading} onClick={submit as any}>
-                {loading ? (<span><span className="spinner" /> Generating…</span>) : 'Generate Report'}
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-primary" disabled={loading} onClick={submit as any} style={{ width: '100%' }}>
+                {loading ? (<span><span className="spinner" /> Generating Report…</span>) : '🚀 Generate Network Outage Report'}
               </button>
-              <span className="footer-note">Uses selected articles and the uploaded image when provided.</span>
+              <div className="footer-note" style={{ marginTop: 8, textAlign: 'center' }}>
+                {useLLM ? '🤖 Will use AI to analyze data' : '📋 Will use template-based analysis'}
+              </div>
             </div>
           </div>
         </div>
