@@ -1,7 +1,9 @@
 # Network Outage Analyzer
 
 # Demo
-https://github.com/user-attachments/assets/48d75c07-e970-43e3-8d41-5f3c95eb3df1
+
+https://github.com/user-attachments/assets/4e298aee-3b1b-4c6b-b4d6-1cc10ddb4b3b
+
 
 An intelligent system for analyzing internet outages using IODA (Internet Outage Detection and Analysis) data, news articles, and OpenAI ChatGPT. Features both traditional API integration and modern MCP (Model Context Protocol) support for AI assistants.
 
