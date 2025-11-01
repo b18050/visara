@@ -1,11 +1,11 @@
 # configs/config.yaml
 
 ioda_base_url: "https://api.ioda.inetintel.cc.gatech.edu/v2"
-news_api_key: "YOUR_NEWSAPI_KEY"
-openai_api_key: ""  # Set this or use OPENAI_API_KEY env variable
-use_llm: true       # Set to false for offline mode (no API calls)
-openai_model: "gpt-4o-mini"  # or gpt-4o, gpt-3.5-turbo
+news_api_key: ""  # Set via NEWSAPI_KEY env var or add here
+openai_api_key: ""  # Set via OPENAI_API_KEY env var or add here
+use_llm: true       # System uses GPT to generate reports
+openai_model: "gpt-4o-mini"  # Recommended: gpt-4o-mini (fast & cheap)
 default_location: "Sanaa, Yemen"
-default_window_hours: 4
-temperature: 0.2
-max_tokens: 800
+default_window_hours: 24
+temperature: 0.7    # Good balance for report generation
+max_tokens: 500     # Sufficient for 300-word reports

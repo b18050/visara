@@ -11,6 +11,7 @@ venv/
 env/
 .env
 .env.*
+!.env.example
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -20,6 +21,17 @@ htmlcov/
 
 # Project outputs
 outputs/
+
+# Demo and test files
+demo-*.png
+ioda-*.png
+*-demo-*.png
+DEMO_*.md
+*_DEMO_*.md
+
+# Static directory (track dashboard-demo.png, ignore others)
+static/**/*.png
+!static/images/dashboard-demo.png
 
 # Logs
 *.log

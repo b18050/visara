@@ -18,12 +18,18 @@ class Coordinator:
             max_tokens=int(config.get("max_tokens", 800)),
         )
 
-    def run(self, location, start_time, end_time):
+    def run(self, location, start_time, end_time, image_base64=None):
         """
         Coordinates the workflow to generate the outage report.
         """
         outage_data = self.ioda_agent.fetch_outage_data(location, start_time, end_time)
         visualization_url = self.ioda_agent.get_visualization_url(location, start_time, end_time)
         news_articles = self.news_agent.fetch_news(location, start_time, end_time)
-        report = self.report_agent.generate_report(outage_data, news_articles, visualization_url)
+        report = self.report_agent.generate_report(
+            location=location,
+            outage_data=outage_data,
+            news_articles=news_articles,
+            visualization_url=visualization_url,
+            image_base64=image_base64
+        )
         return report

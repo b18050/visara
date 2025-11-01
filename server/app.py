@@ -70,18 +70,22 @@ def create_report(req: ReportRequest):
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(hours=hours)
 
-        # If articles were provided, generate directly from inputs; otherwise run the pipeline
+        # Build visualization URL for IODA dashboard
+        visualization_url = coordinator.ioda_agent.get_visualization_url(location, start_time, end_time)
+        
+        # If articles were provided, generate directly from inputs; otherwise run the full pipeline
         if req.articles:
-            outage_data = None
-            visualization_url = None
+            # User provided articles - use them directly
             report = coordinator.report_agent.generate_report(
-                outage_data=outage_data,
+                location=location,
+                outage_data=None,
                 news_articles=req.articles or [],
                 visualization_url=visualization_url,
                 image_base64=req.image_base64,
             )
         else:
-            report = coordinator.run(location, start_time, end_time)
+            # Fetch everything automatically
+            report = coordinator.run(location, start_time, end_time, image_base64=req.image_base64)
 
         return {
             "location": location,

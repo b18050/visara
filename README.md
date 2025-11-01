@@ -64,21 +64,24 @@ pip3 install -r requirements.txt
 python3 test_setup.py
 ```
 
-3. **Configure OpenAI API key:**
+3. **Configure API keys:**
 
-Edit `configs/config.yaml`:
-```yaml
-openai_api_key: "sk-your-api-key-here"
-use_llm: true
+**Recommended: Use .env file** (keeps secrets safe)
+```bash
+cp .env.example .env
+# Edit .env and add your API keys
 ```
 
-Or set environment variable:
+**Alternative: Set environment variables**
 ```bash
 export OPENAI_API_KEY="sk-your-api-key-here"
+export NEWSAPI_KEY="your-newsapi-key-here"  # Optional
 ```
 
-4. **Optional: Configure NewsAPI key** (for news integration):
+**Or edit config directly** (not recommended for version control)
 ```yaml
+# configs/config.yaml
+openai_api_key: "sk-your-api-key-here"
 news_api_key: "your-newsapi-key"
 ```
 
@@ -336,7 +339,7 @@ go mod init github.com/yourusername/visara-gateway
 
 ## 📸 Screenshots
 
-![Dashboard Demo](image.png)
+![Dashboard Demo](static/images/dashboard-demo.png)
 
 ## 📄 License
 

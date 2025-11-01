@@ -1,4 +1,9 @@
 import { useMemo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx'
+import { saveAs } from 'file-saver'
 
 type ReportResponse = {
   location: string
@@ -13,7 +18,7 @@ export default function App() {
   const [location, setLocation] = useState('Sanaa, Yemen')
   const [hours, setHours] = useState(24)
   const [useLLM, setUseLLM] = useState(true)
-  const [model, setModel] = useState('phi3:mini')
+  const [model, setModel] = useState('gpt-4o-mini')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -22,6 +27,9 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ReportResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editedReport, setEditedReport] = useState('')
+  const [tempEditReport, setTempEditReport] = useState('')
 
   function onImageChange(f: File | null) {
     setImageFile(f)
@@ -84,12 +92,110 @@ export default function App() {
       }
       const data: ReportResponse = await res.json()
       setResult(data)
+      setEditedReport(data.report)
+      setTempEditReport(data.report)
+      setShowEditModal(false)
     } catch (err: any) {
       console.error('Report error:', err)
       setError('Connection failed. Make sure the backend server is running at ' + API_URL)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function downloadPDF() {
+    if (!result) return
+    const element = document.getElementById('report-content')
+    if (!element) return
+    
+    const canvas = await html2canvas(element, { scale: 2 })
+    const imgData = canvas.toDataURL('image/png')
+    
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const imgWidth = 210
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+    pdf.save(`network-outage-report-${result.location.replace(/,\s*/g, '-')}.pdf`)
+  }
+
+  async function downloadDOCX() {
+    if (!editedReport) return
+    
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            text: `Network Outage Report: ${result?.location || 'Unknown'}`,
+            heading: HeadingLevel.HEADING_1,
+          }),
+          new Paragraph({
+            text: `Generated: ${result?.generated_at ? new Date(result.generated_at).toLocaleString() : ''}`,
+            spacing: { after: 200 },
+          }),
+          ...editedReport.split('\n').map(line => 
+            new Paragraph({
+              children: [new TextRun(line)],
+            })
+          ),
+        ],
+      }],
+    })
+    
+    const blob = await Packer.toBlob(doc)
+    saveAs(blob, `network-outage-report-${result?.location.replace(/,\s*/g, '-') || 'report'}.docx`)
+  }
+
+  function shareToInstagram() {
+    if (!result) return
+    const text = `Network Outage Report: ${result.location}\n\nGenerated with AI-powered analysis.\n\n#NetworkEngineering #OutageAnalysis #AI #TechTools`
+    
+    // Copy to clipboard for Instagram
+    navigator.clipboard.writeText(editedReport.substring(0, 500) + '\n\n' + text)
+    alert('📋 Report summary copied to clipboard!\n\nPaste it into your Instagram post.\n\n💡 Tip: Add a screenshot of the report for visual appeal.')
+  }
+
+  function openEditModal() {
+    setTempEditReport(editedReport)
+    setShowEditModal(true)
+  }
+
+  function saveEdit() {
+    setEditedReport(tempEditReport)
+    setShowEditModal(false)
+  }
+
+  function cancelEdit() {
+    setTempEditReport(editedReport)
+    setShowEditModal(false)
+  }
+
+  function insertMarkdown(type: string) {
+    const textarea = document.getElementById('edit-textarea') as HTMLTextAreaElement
+    if (!textarea) return
+    
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = tempEditReport.substring(start, end)
+    let newText = tempEditReport
+    
+    switch(type) {
+      case 'bold':
+        newText = tempEditReport.substring(0, start) + `**${selectedText || 'bold text'}**` + tempEditReport.substring(end)
+        break
+      case 'italic':
+        newText = tempEditReport.substring(0, start) + `*${selectedText || 'italic text'}*` + tempEditReport.substring(end)
+        break
+      case 'heading':
+        newText = tempEditReport.substring(0, start) + `## ${selectedText || 'Heading'}` + tempEditReport.substring(end)
+        break
+      case 'list':
+        newText = tempEditReport.substring(0, start) + `\n- ${selectedText || 'List item'}` + tempEditReport.substring(end)
+        break
+    }
+    
+    setTempEditReport(newText)
   }
 
   return (
@@ -124,7 +230,7 @@ export default function App() {
             <div className="field">
               <label className="label">Outage Image (PNG/JPEG)</label>
               <div className="section-sub" style={{ marginTop: -6, marginBottom: 8 }}>Optional: Upload a network outage visualization or map</div>
-              <input className="input" accept="image/png,image/jpeg" type="file" onChange={e => onImageChange(e.target.files?.[0] || null)} />
+              <input className="input-file" accept="image/png,image/jpeg" type="file" onChange={e => onImageChange(e.target.files?.[0] || null)} />
               {imagePreview && (
                 <div className="preview"><img src={imagePreview} alt="Preview" /></div>
               )}
@@ -181,15 +287,98 @@ export default function App() {
             <div className="section-title">Report Preview</div>
             {result ? (
               <>
-                <div className="section-sub">{result.location} • {result.hours}h • {new Date(result.generated_at).toLocaleString()}</div>
-                <textarea className="textarea" readOnly value={result.report} />
+                <div className="report-header">
+                  <div className="report-meta">
+                    <span className="meta-badge">📍 {result.location}</span>
+                    <span className="meta-badge">🕐 {result.hours}h window</span>
+                    <span className="meta-badge">📅 {new Date(result.generated_at).toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="action-buttons">
+                    <button className="action-btn edit-btn" onClick={openEditModal} title="Edit report">
+                      ✏️ Edit
+                    </button>
+                    <button className="action-btn" onClick={shareToInstagram} title="Share to Instagram">
+                      📸 Instagram
+                    </button>
+                    <button className="action-btn" onClick={downloadPDF} title="Download as PDF">
+                      📄 PDF
+                    </button>
+                    <button className="action-btn" onClick={downloadDOCX} title="Download as DOCX">
+                      📝 DOCX
+                    </button>
+                  </div>
+                </div>
+
+                <div id="report-content" className="report-content">
+                  <ReactMarkdown>{editedReport}</ReactMarkdown>
+                </div>
               </>
             ) : (
-              <div className="section-sub">Generated report will appear here.</div>
+              <div className="empty-state">
+                <div className="empty-icon">📊</div>
+                <div className="empty-text">Generated report will appear here</div>
+                <div className="empty-hint">Enter location and click "Generate Report"</div>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={cancelEdit}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">✏️ Edit Report</h2>
+              <button className="modal-close" onClick={cancelEdit}>✕</button>
+            </div>
+
+            <div className="modal-toolbar">
+              <button className="toolbar-btn" onClick={() => insertMarkdown('bold')} title="Bold">
+                <strong>B</strong>
+              </button>
+              <button className="toolbar-btn" onClick={() => insertMarkdown('italic')} title="Italic">
+                <em>I</em>
+              </button>
+              <button className="toolbar-btn" onClick={() => insertMarkdown('heading')} title="Heading">
+                H1
+              </button>
+              <button className="toolbar-btn" onClick={() => insertMarkdown('list')} title="Bullet List">
+                • List
+              </button>
+              <div className="toolbar-divider"></div>
+              <span className="toolbar-hint">Select text and click formatting buttons</span>
+            </div>
+
+            <div className="modal-body">
+              <div className="edit-container">
+                <div className="edit-pane">
+                  <div className="pane-label">📝 Markdown Editor</div>
+                  <textarea
+                    id="edit-textarea"
+                    className="modal-textarea"
+                    value={tempEditReport}
+                    onChange={e => setTempEditReport(e.target.value)}
+                    placeholder="Edit your report using Markdown..."
+                  />
+                </div>
+                <div className="preview-pane">
+                  <div className="pane-label">👁️ Live Preview</div>
+                  <div className="modal-preview">
+                    <ReactMarkdown>{tempEditReport}</ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn" onClick={cancelEdit}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit}>💾 Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

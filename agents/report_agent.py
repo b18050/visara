@@ -1,11 +1,10 @@
 """Report generation agent using OpenAI ChatGPT.
 
-Defaults to a local, deterministic renderer so the app works
-without an API key. When enabled with an API key, uses OpenAI's
-ChatGPT to generate a richer analysis.
+Generates network outage analysis reports using GPT.
 """
 
 from typing import Any, List, Optional
+import os
 
 try:
     from openai import OpenAI
@@ -18,102 +17,157 @@ class ReportAgent:
         self,
         api_key: Optional[str],
         prompt_template: str,
-        use_llm: bool = False,
+        use_llm: bool = True,
         model: str = "gpt-4o-mini",
-        temperature: float = 0.2,
-        max_tokens: int = 800,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
     ):
-        self.api_key = api_key
+        # Try to get API key from environment if not provided
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.prompt_template = prompt_template
         self.use_llm = use_llm
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        # Initialize OpenAI client if enabled
+        # Initialize OpenAI client
         self._client = None
-        if self.use_llm and self.api_key and OpenAI is not None:
+        if self.api_key and OpenAI is not None:
             try:
                 self._client = OpenAI(api_key=self.api_key)
-            except Exception:
+            except Exception as e:
+                print(f"Warning: Could not initialize OpenAI client: {e}")
                 self._client = None
-                self.use_llm = False
 
-    def _render_local(self, outage_data: Any, news_articles: List[dict], visualization_url: Optional[str], has_image: bool = False) -> str:
-        """Render a concise, structured report locally without an LLM."""
-        lines = []
-        lines.append("Network Outage Report")
-        lines.append("======================")
+    def _create_prompt(self, location: str, news_articles: List[dict], visualization_url: Optional[str], has_image: bool) -> str:
+        """Create a prompt for GPT to generate a network outage report."""
+        prompt = f"""You are a network outage analysis expert. Generate a professional 300-word report analyzing a network outage incident.
+
+**LOCATION:** {location}
+**TIME WINDOW:** Last 24 hours
+"""
+        
         if visualization_url:
-            lines.append(f"Visualization: {visualization_url}")
-        lines.append("")
+            prompt += f"""**IODA DASHBOARD:** {visualization_url}
+(Use this to reference real-time IODA data: BGP routing, active probing, internet telescope signals)
+
+"""
+        
         if has_image:
-            lines.append("Image: An outage map/image was provided by the user.")
-            lines.append("")
+            prompt += """**VISUAL EVIDENCE:** User uploaded a network outage visualization/map showing connectivity disruptions, traffic patterns, or BGP anomalies. Analyze this image in your report.
 
-        lines.append("Outage Data:")
-        if outage_data:
-            # Keep compact; avoid huge dumps
-            summary = str(outage_data)
-            if len(summary) > 800:
-                summary = summary[:800] + "..."
-            lines.append(summary)
-        else:
-            lines.append("No outage data available (offline or API error).")
-        lines.append("")
+"""
+        
+        if news_articles and len(news_articles) > 0:
+            prompt += f"""**RECENT NEWS ARTICLES ({len(news_articles)} articles):**
+"""
+            for i, article in enumerate(news_articles[:5], 1):
+                title = article.get("title", "Untitled")
+                source = (article.get("source") or {}).get("name") or article.get("source") or "Unknown"
+                description = article.get("description", "")[:150]
+                prompt += f"{i}. \"{title}\" - {source}\n"
+                if description:
+                    prompt += f"   Summary: {description}\n"
+            prompt += "\n"
+        
+        prompt += """**TASK:** Generate a comprehensive 300-word network outage analysis report.
 
-        lines.append("Relevant News:")
-        if news_articles:
-            for i, art in enumerate(news_articles[:5], start=1):
-                title = art.get("title") or "Untitled"
-                src = (art.get("source") or {}).get("name") or art.get("source") or "Unknown"
-                url = art.get("url") or ""
-                lines.append(f"{i}. {title} — {src} {url}")
-        else:
-            lines.append("No related articles found (offline or API error).")
-        lines.append("")
+**REQUIRED SECTIONS:**
+1. **Executive Summary** - What happened in this location? Synthesize the image, news, and IODA data
+2. **Root Cause Analysis** - List 3-4 most likely technical causes based on evidence
+3. **Impact Assessment** - Who is affected? Infrastructure, businesses, citizens?
+4. **Recommended Actions** - 4 specific technical steps for ISPs/engineers
 
-        lines.append("Analysis:")
-        lines.append(
-            "Based on available signals and reports, an outage likely occurred in the target region. "
-            "Possible causes include localized infrastructure failure, upstream transit disruptions, or intentional network restrictions. "
-            "Cross-reference traffic anomalies with provider maintenance notices and incident trackers to confirm root cause."
-        )
-        return "\n".join(lines)
+**REQUIREMENTS:**
+- Be specific to {location}
+- Reference the uploaded image if provided
+- Cite the news articles if provided
+- Mention BGP routing, transit providers, or technical details from IODA
+- Keep it exactly ~300 words
+- Use professional technical language
+- Format with clear markdown headers
 
-    def generate_report(self, outage_data, news_articles, visualization_url: Optional[str] = None, image_base64: Optional[str] = None) -> str:
+Generate the report now:"""
+        
+        return prompt
+
+    def generate_report(self, location: str, outage_data, news_articles, visualization_url: Optional[str] = None, image_base64: Optional[str] = None) -> str:
         """
-        Generates a report using either a local renderer or OpenAI ChatGPT.
+        Generates a 300-word report using OpenAI ChatGPT.
+        
+        Args:
+            location: Geographic location being analyzed
+            outage_data: IODA outage metrics (can be None)
+            news_articles: List of related news articles
+            visualization_url: Link to IODA dashboard
+            image_base64: User-uploaded image (PNG/JPEG)
         """
-        prompt = self.prompt_template.format(
-            outage_data=outage_data,
-            news_articles=news_articles,
-            visualization_url=visualization_url or "",
-            image_context=("User provided an outage image (PNG)." if image_base64 else "No image provided.")
-        )
+        # Check if OpenAI is available
+        if not self._client:
+            return self._generate_demo_report(location, news_articles, has_image=bool(image_base64))
 
-        # Use local renderer if LLM is disabled or client not initialized
-        if not self.use_llm or self._client is None:
-            return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))
+        # Create prompt with all inputs
+        prompt = self._create_prompt(
+            location, 
+            news_articles or [], 
+            visualization_url,
+            has_image=bool(image_base64)
+        )
 
         # Use OpenAI ChatGPT
         try:
             content: Any = [{"type": "text", "text": prompt}]
-            if image_base64:
+            
+            # Add image if provided (GPT-4 Vision models)
+            if image_base64 and "gpt-4" in self.model:
                 content.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:image/png;base64,{image_base64}"}
                 })
+            
             response = self._client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a network outage analysis assistant."},
+                    {"role": "system", "content": "You are an expert network engineer specializing in internet outage analysis and incident response."},
                     {"role": "user", "content": content},
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
             )
-            return response.choices[0].message.content  # type: ignore[attr-defined]
+            return response.choices[0].message.content or "Report generation failed."
         except Exception as e:
-            print(f"OpenAI API error: {e}. Falling back to local renderer.")
-            return self._render_local(outage_data, news_articles, visualization_url, has_image=bool(image_base64))
+            error_msg = str(e)
+            print(f"OpenAI API error: {error_msg}")
+            return f"⚠️ OpenAI API Error: {error_msg}\n\nPlease configure your OPENAI_API_KEY in configs/config.yaml or as an environment variable."
+    
+    def _generate_demo_report(self, location: str, news_articles: List[dict], has_image: bool) -> str:
+        """Generate a simple demo report when OpenAI is not configured."""
+        report = f"""📊 Network Outage Analysis Report
+Location: {location}
+{"🖼️  Image: Outage visualization provided" if has_image else ""}
+
+⚠️ OpenAI API Configuration Required
+
+This system uses GPT (ChatGPT) to generate professional 300-word network outage analysis reports.
+
+To enable AI-powered reports:
+1. Get an API key from https://platform.openai.com/api-keys
+2. Add to configs/config.yaml: openai_api_key: "sk-your-key"
+3. Or set environment variable: export OPENAI_API_KEY="sk-your-key"
+
+Demo Mode Features:
+✓ Real-time IODA data integration
+✓ NewsAPI article aggregation  
+✓ Image upload support (PNG/JPEG)
+✓ GPT-4 powered analysis (when configured)
+
+With GPT enabled, you'll receive:
+• Executive summary of the outage
+• Root cause analysis
+• Impact assessment
+• Recommended remediation steps
+• Professional 300-word report
+
+{"News articles provided: " + str(len(news_articles)) if news_articles else ""}
+"""
+        return report
