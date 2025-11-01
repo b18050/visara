@@ -6,9 +6,25 @@ import yaml
 from datetime import datetime, timedelta
 from agents.coordinator import Coordinator
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 def load_config(config_path):
+    """Load config from YAML and override with environment variables."""
     with open(config_path, 'r') as file:
-        return yaml.safe_load(file)
+        config = yaml.safe_load(file)
+    
+    # Override with environment variables if they exist
+    if os.getenv("OPENAI_API_KEY"):
+        config["openai_api_key"] = os.getenv("OPENAI_API_KEY")
+    if os.getenv("NEWSAPI_KEY"):
+        config["news_api_key"] = os.getenv("NEWSAPI_KEY")
+    
+    return config
 
 def load_prompt(prompt_path):
     with open(prompt_path, 'r') as file:
