@@ -40,14 +40,14 @@ An intelligent system for analyzing internet outages using IODA (Internet Outage
 **Option 1: Run the test script (recommended)**
 ```bash
 cd visara
-python3 test_setup.py
+python3 scripts/test_setup.py
 ```
 
 This will verify your setup and show you what's working!
 
 **Option 2: Interactive launcher**
 ```bash
-./run.sh
+./scripts/run.sh
 ```
 
 ### Installation
@@ -61,7 +61,7 @@ pip3 install -r requirements.txt
 
 2. **Verify setup:**
 ```bash
-python3 test_setup.py
+python3 scripts/test_setup.py
 ```
 
 3. **Configure API keys:**
@@ -101,7 +101,7 @@ Then visit http://localhost:8000
 
 **Interactive Mode:**
 ```bash
-./run.sh
+./scripts/run.sh
 ```
 Choose from CLI, Web, or MCP server
 
